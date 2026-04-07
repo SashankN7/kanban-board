@@ -273,7 +273,7 @@ function CreateTaskModal({ defaultStatus, onClose, onSubmit, labels, teamMembers
   )
 }
 
-function TaskDetailModal({ task, onClose, labels, teamMembers, onStatusChange }) {
+function TaskDetailModal({ task, onClose, labels, teamMembers }) {
   const [comments, setComments] = useState([])
   const [activity, setActivity] = useState([])
   const [newComment, setNewComment] = useState('')
@@ -283,21 +283,17 @@ function TaskDetailModal({ task, onClose, labels, teamMembers, onStatusChange })
   const taskMembers = teamMembers.filter(m => (task.assignee_ids || []).includes(m.id))
 
   useEffect(() => {
-    loadComments()
-    loadActivity()
+    async function load() {
+      const { data: comments } = await supabase.from('comments')
+        .select('*').eq('task_id', task.id).order('created_at', { ascending: true })
+      if (comments) setComments(comments)
+
+      const { data: activity } = await supabase.from('activity_log')
+        .select('*').eq('task_id', task.id).order('created_at', { ascending: true })
+      if (activity) setActivity(activity)
+    }
+    load()
   }, [task.id])
-
-  async function loadComments() {
-    const { data } = await supabase.from('comments')
-      .select('*').eq('task_id', task.id).order('created_at', { ascending: true })
-    if (data) setComments(data)
-  }
-
-  async function loadActivity() {
-    const { data } = await supabase.from('activity_log')
-      .select('*').eq('task_id', task.id).order('created_at', { ascending: true })
-    if (data) setActivity(data)
-  }
 
   async function submitComment() {
     if (!newComment.trim()) return
@@ -328,7 +324,6 @@ function TaskDetailModal({ task, onClose, labels, teamMembers, onStatusChange })
         width: '580px', maxWidth: '90vw', maxHeight: '85vh',
         display: 'flex', flexDirection: 'column',
       }}>
-        {/* Header */}
         <div style={{ padding: '24px 24px 0', borderBottom: '1px solid #2a2a3d', paddingBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <h2 style={{ fontSize: '18px', fontWeight: '700', flex: 1, marginRight: '16px' }}>{task.title}</h2>
@@ -382,8 +377,7 @@ function TaskDetailModal({ task, onClose, labels, teamMembers, onStatusChange })
             </p>
           )}
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: '0', marginTop: '16px' }}>
+          <div style={{ display: 'flex', marginTop: '16px' }}>
             {['comments', 'activity'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{
                 padding: '8px 16px', background: 'none', border: 'none',
@@ -396,7 +390,6 @@ function TaskDetailModal({ task, onClose, labels, teamMembers, onStatusChange })
           </div>
         </div>
 
-        {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
           {activeTab === 'comments' ? (
             <>
@@ -410,9 +403,7 @@ function TaskDetailModal({ task, onClose, labels, teamMembers, onStatusChange })
                   background: '#13131f', borderRadius: '8px',
                   padding: '10px 14px', marginBottom: '8px',
                 }}>
-                  <div style={{ fontSize: '12px', color: '#555', marginBottom: '4px' }}>
-                    {timeAgo(c.created_at)}
-                  </div>
+                  <div style={{ fontSize: '12px', color: '#555', marginBottom: '4px' }}>{timeAgo(c.created_at)}</div>
                   <div style={{ fontSize: '13px', color: '#ddd' }}>{c.content}</div>
                 </div>
               ))}
@@ -444,8 +435,7 @@ function TaskDetailModal({ task, onClose, labels, teamMembers, onStatusChange })
               )}
               {activity.map(a => (
                 <div key={a.id} style={{
-                  display: 'flex', gap: '10px', alignItems: 'flex-start',
-                  marginBottom: '12px',
+                  display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px',
                 }}>
                   <div style={{
                     width: '8px', height: '8px', borderRadius: '50%',
@@ -470,7 +460,7 @@ function TeamModal({ teamMembers, onClose, onAdd, onDelete }) {
   const COLORS = ['#6c63ff', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6']
   const [color, setColor] = useState(COLORS[0])
 
-  async function handleAdd() {
+  function handleAdd() {
     if (!name.trim()) return
     onAdd({ name, color })
     setName('')
@@ -486,7 +476,6 @@ function TeamModal({ teamMembers, onClose, onAdd, onDelete }) {
         padding: '28px', width: '420px', maxWidth: '90vw',
       }}>
         <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>Team Members</h2>
-
         <div style={{ marginBottom: '20px' }}>
           {teamMembers.length === 0 && (
             <p style={{ color: '#555', fontSize: '13px', marginBottom: '12px' }}>No team members yet.</p>
@@ -499,23 +488,18 @@ function TeamModal({ teamMembers, onClose, onAdd, onDelete }) {
               <Avatar member={m} size={32} />
               <span style={{ fontSize: '14px', flex: 1 }}>{m.name}</span>
               <button onClick={() => onDelete(m.id)} style={{
-                background: 'none', border: 'none', color: '#555',
-                cursor: 'pointer', fontSize: '16px',
+                background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '16px',
               }}>×</button>
             </div>
           ))}
         </div>
-
-        <label style={{ fontSize: '13px', color: '#888', display: 'block', marginBottom: '6px' }}>
-          Add Member
-        </label>
+        <label style={{ fontSize: '13px', color: '#888', display: 'block', marginBottom: '6px' }}>Add Member</label>
         <input value={name} onChange={e => setName(e.target.value)}
           placeholder="Member name" style={{
             width: '100%', padding: '10px 12px', background: '#13131f',
             border: '1px solid #2a2a3d', borderRadius: '8px',
             color: '#fff', fontSize: '14px', outline: 'none', marginBottom: '10px',
           }} />
-
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {COLORS.map(c => (
             <div key={c} onClick={() => setColor(c)} style={{
@@ -524,7 +508,6 @@ function TeamModal({ teamMembers, onClose, onAdd, onDelete }) {
             }} />
           ))}
         </div>
-
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{
             padding: '10px 20px', borderRadius: '8px', background: 'transparent',
@@ -545,7 +528,7 @@ function LabelsModal({ labels, onClose, onAdd, onDelete }) {
   const COLORS = ['#6c63ff', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6']
   const [color, setColor] = useState(COLORS[0])
 
-  async function handleAdd() {
+  function handleAdd() {
     if (!name.trim()) return
     onAdd({ name, color })
     setName('')
@@ -561,7 +544,6 @@ function LabelsModal({ labels, onClose, onAdd, onDelete }) {
         padding: '28px', width: '420px', maxWidth: '90vw',
       }}>
         <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>Labels</h2>
-
         <div style={{ marginBottom: '20px' }}>
           {labels.length === 0 && (
             <p style={{ color: '#555', fontSize: '13px', marginBottom: '12px' }}>No labels yet.</p>
@@ -579,17 +561,13 @@ function LabelsModal({ labels, onClose, onAdd, onDelete }) {
             </div>
           ))}
         </div>
-
-        <label style={{ fontSize: '13px', color: '#888', display: 'block', marginBottom: '6px' }}>
-          Add Label
-        </label>
+        <label style={{ fontSize: '13px', color: '#888', display: 'block', marginBottom: '6px' }}>Add Label</label>
         <input value={name} onChange={e => setName(e.target.value)}
           placeholder="Label name (e.g. Bug, Feature)" style={{
             width: '100%', padding: '10px 12px', background: '#13131f',
             border: '1px solid #2a2a3d', borderRadius: '8px',
             color: '#fff', fontSize: '14px', outline: 'none', marginBottom: '10px',
           }} />
-
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {COLORS.map(c => (
             <div key={c} onClick={() => setColor(c)} style={{
@@ -598,7 +576,6 @@ function LabelsModal({ labels, onClose, onAdd, onDelete }) {
             }} />
           ))}
         </div>
-
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{
             padding: '10px 20px', borderRadius: '8px', background: 'transparent',
@@ -619,6 +596,7 @@ function App() {
   const [labels, setLabels] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [draggingId, setDraggingId] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showTeamModal, setShowTeamModal] = useState(false)
@@ -640,7 +618,8 @@ function App() {
 
   async function loadTasks() {
     setLoading(true)
-    const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: true })
+    const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: true })
+    if (error) setError('Failed to load tasks. Please refresh.')
     if (data) setTasks(data)
     setLoading(false)
   }
@@ -662,9 +641,7 @@ function App() {
     if (data) {
       setTasks(prev => [...prev, data[0]])
       await supabase.from('activity_log').insert([{
-        task_id: data[0].id,
-        message: 'Task created',
-        user_id: user.id,
+        task_id: data[0].id, message: 'Task created', user_id: user.id,
       }])
     }
   }
@@ -688,8 +665,7 @@ function App() {
 
   async function handleAddLabel(label) {
     const { data: { user } } = await supabase.auth.getUser()
-    const { data } = await supabase.from('labels')
-      .insert([{ ...label, user_id: user.id }]).select()
+    const { data } = await supabase.from('labels').insert([{ ...label, user_id: user.id }]).select()
     if (data) setLabels(prev => [...prev, data[0]])
   }
 
@@ -700,8 +676,7 @@ function App() {
 
   async function handleAddMember(member) {
     const { data: { user } } = await supabase.auth.getUser()
-    const { data } = await supabase.from('team_members')
-      .insert([{ ...member, user_id: user.id }]).select()
+    const { data } = await supabase.from('team_members').insert([{ ...member, user_id: user.id }]).select()
     if (data) setTeamMembers(prev => [...prev, data[0]])
   }
 
@@ -730,9 +705,15 @@ function App() {
     }}>Loading your board...</div>
   )
 
+  if (error) return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', color: '#ef4444', fontSize: '16px',
+    }}>{error}</div>
+  )
+
   return (
     <div style={{ padding: '32px', minHeight: '100vh' }}>
-      {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
           <div>
@@ -761,7 +742,6 @@ function App() {
           </div>
         </div>
 
-        {/* Search & Filters */}
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <input
             value={search}
@@ -793,7 +773,6 @@ function App() {
         </div>
       </div>
 
-      {/* Board */}
       <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '16px' }}>
         {COLUMNS.map(column => (
           <Column
@@ -841,7 +820,6 @@ function App() {
           onClose={() => setSelectedTask(null)}
           labels={labels}
           teamMembers={teamMembers}
-          onStatusChange={() => {}}
         />
       )}
     </div>
