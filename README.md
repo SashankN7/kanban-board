@@ -1,16 +1,57 @@
-# React + Vite
+# Kanban Board
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Full-stack task board** with drag-and-drop, real-time search and filtering, labels, team members, comments, and an activity log — with per-user data isolation enforced in the database.
 
-Currently, two official plugins are available:
+**[Live app →](https://kanban-board-neon-eight.vercel.app)** — no signup, it drops you straight into your own board.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Built with React 19, Vite, and Supabase (Postgres). Deployed on Vercel.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+- **Drag-and-drop across columns**, applied optimistically — the card moves on `dragend` and the write goes out behind it, so reordering never waits on a round trip.
+- **Zero-friction entry** via Supabase anonymous authentication. A guest session is created on first load and persisted, so a visitor gets a real, private, durable board without an email or password.
+- **Search and multi-criteria filtering** — free-text search combined with priority and label filters, applied together against the task set.
+- **Task detail view** with description, priority, due date, label assignment, member assignment, threaded comments, and a per-task activity log.
+- **Labels and team members** are user-defined, each with a name and color, managed in their own modals.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Data model
+
+Five related tables in Supabase Postgres:
+
+| Table | Holds |
+|---|---|
+| `tasks` | title, description, status, priority, due date |
+| `labels` | user-defined tags with colors |
+| `team_members` | assignable people with colors |
+| `comments` | per-task discussion |
+| `activity_log` | per-task change history |
+
+Relationships are UUID-based, and **Row-Level Security is enabled on every table**, so a session can only ever read or write its own rows. Isolation is enforced by Postgres policies rather than by client-side filtering — the guarantee holds even against a hand-crafted request.
+
+## Running locally
+
+```bash
+git clone https://github.com/SashankN7/kanban-board.git
+cd kanban-board
+npm install
+npm run dev
+```
+
+Create a `.env.local` with your own Supabase project:
+
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+The anon key is safe in the client — it's the RLS policies, not key secrecy, that enforce isolation. You'll need to create the five tables above and enable anonymous sign-ins in your Supabase auth settings.
+
+## Deployment
+
+Pushed to `main` → Vercel builds and deploys automatically. Set the two `VITE_` variables in the Vercel project settings.
+
+## Stack
+
+React 19 · Vite · Supabase (Postgres, Auth, Row-Level Security) · Vercel
